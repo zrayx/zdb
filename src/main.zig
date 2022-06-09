@@ -2,6 +2,7 @@ const std = @import("std");
 const expect = std.testing.expect;
 
 const common = @import("common.zig");
+const croc = common.allocator;
 
 const Type = enum {
     float,
@@ -25,7 +26,7 @@ const Value = union(Type) {
         if (f_err) |f| {
             return Value{ .float = f };
         } else |_| {
-            var v = Value{ .string = std.ArrayList(u8).init(common.allocator) };
+            var v = Value{ .string = std.ArrayList(u8).init(croc) };
             try v.string.appendSlice(s);
             return v;
         }
@@ -48,8 +49,8 @@ const Column = struct {
 
     fn init(name: []const u8) !Column {
         var col = Column{
-            .name = std.ArrayList(u8).init(common.allocator),
-            .rows = std.ArrayList(Value).init(common.allocator),
+            .name = std.ArrayList(u8).init(croc),
+            .rows = std.ArrayList(Value).init(croc),
         };
         try col.name.appendSlice(name);
         return col;
@@ -61,7 +62,7 @@ const Column = struct {
 
     /// returns true if name identifies this column
     fn is_name(self: Self, name: []const u8) bool {
-        return if (common.strcmp(self.name.items, name) == common.Compare.equal) true else false;
+        return std.mem.eql(u8, self.name.items, name);
     }
 
     fn deinit(self: Self) void {
@@ -81,8 +82,8 @@ const Table = struct {
 
     fn init(name: []const u8) !Table {
         var table = Table{
-            .name = std.ArrayList(u8).init(common.allocator),
-            .columns = std.ArrayList(Column).init(common.allocator),
+            .name = std.ArrayList(u8).init(croc),
+            .columns = std.ArrayList(Column).init(croc),
         };
         try table.name.appendSlice(name);
         return table;
@@ -93,7 +94,7 @@ const Table = struct {
         try self.columns.append(col);
     }
 
-    fn add_single(self: *Self, colname: []const u8, v: Value) !void {
+    fn append_column(self: *Self, colname: []const u8, v: Value) !void {
         for (self.columns.items) |col, idx| {
             if (col.is_name(colname)) {
                 try self.columns.items[idx].rows.append(v);
@@ -101,21 +102,51 @@ const Table = struct {
         }
     }
 
+    fn append_at(self: *Self, col_idx: usize, v: Value) !void {
+        try self.columns.items[col_idx].rows.append(v);
+    }
+
     fn print(self: Self) !void {
-        const string = try std.fmt.allocPrint(common.allocator, "\nTable {s}", .{self.name.items});
-        defer common.allocator.free(string);
+        // print table name
+        const string = try std.fmt.allocPrint(croc, "\nTable {s}", .{self.name.items});
+        defer croc.free(string);
         common.print_with_line(string);
 
-        for (self.columns.items) |col| {
-            common.print_with_line(col.name.items);
-            for (col.rows.items) |row, idx| {
-                std.debug.print("row {d}: ", .{idx});
+        // print column names
+        var line = std.ArrayList(u8).init(croc);
+        defer line.deinit();
+        for (self.columns.items) |col, idx| {
+            try line.appendSlice(col.name.items);
+            if (idx + 1 < self.columns.items.len) {
+                try line.appendSlice(",");
+            }
+        }
+        common.print_with_line(line.items);
+
+        // print column contents
+        var row_idx: usize = 0;
+        var has_more: bool = true;
+        const p = line.writer().print;
+        while (has_more) : (row_idx += 1) {
+            try line.resize(0); // reusing the line from above
+
+            has_more = false;
+            for (self.columns.items) |col, idx| {
+                if (col.rows.items.len > row_idx + 1) {
+                    has_more = true;
+                }
+                const row = col.rows.items[row_idx];
                 switch (row) {
-                    .string => |s| std.debug.print("{s}\n", .{s.items}),
-                    .float => |d| std.debug.print("{d}\n", .{d}),
-                    .empty => std.debug.print("\n", .{}),
+                    .string => |s| try p("{s}", .{s.items}),
+                    .float => |d| try p("{d}", .{d}),
+                    .empty => {},
+                }
+
+                if (idx + 1 < self.columns.items.len) {
+                    try line.appendSlice(",");
                 }
             }
+            std.debug.print("{s}\n", .{line.items});
         }
     }
 
@@ -132,13 +163,9 @@ export fn add(a: f64, b: f64) f64 {
     return a + b;
 }
 
-fn readFile(name: []const u8) !Table {
-    const filename = try std.fmt.allocPrint(
-        common.allocator,
-        "db/{s}.csv",
-        .{name},
-    );
-    defer common.allocator.free(filename);
+fn readTableFromCSV(name: []const u8) !Table {
+    const filename = try std.fmt.allocPrint(croc, "db/{s}.csv", .{name});
+    defer croc.free(filename);
     var file = try std.fs.cwd().openFile(filename, .{});
     defer file.close();
 
@@ -147,51 +174,74 @@ fn readFile(name: []const u8) !Table {
     var buf_reader = std.io.bufferedReader(file.reader());
     var in_stream = buf_reader.reader();
 
-    var buf: [1024]u8 = undefined;
-    if (try in_stream.readUntilDelimiterOrEof(&buf, '\n')) |cn| {
-        const colname = try std.fmt.allocPrint(
-            common.allocator,
-            "{s}",
-            .{cn},
-        );
-        defer common.allocator.free(colname);
-        try table.add_column(colname);
+    var buf: [65536]u8 = undefined;
+    if (try in_stream.readUntilDelimiterOrEof(&buf, '\n')) |line_title| {
+        // read headers
+        var it_title = std.mem.split(u8, line_title, ",");
+        var num_columns: usize = 0;
+        while (it_title.next()) |colname| {
+            try table.add_column(colname);
+            num_columns += 1;
+        }
+
+        // read column contents
         while (try in_stream.readUntilDelimiterOrEof(&buf, '\n')) |line| {
-            const value = try Value.parse(line);
-            try table.add_single(colname, value);
+            var it = std.mem.split(u8, line, ",");
+            var col_idx: usize = 0;
+            while (it.next()) |content| {
+                const value = try Value.parse(content);
+                try table.append_at(col_idx, value);
+                col_idx += 1;
+            }
+            while (col_idx < num_columns) : (col_idx += 1) {
+                try table.append_at(col_idx, Value.empty);
+                col_idx += 1;
+            }
         }
     }
     return table;
 }
 
+test "split" {
+    var it = std.mem.split(u8, "abc|def||ghi", "|");
+    try expect(std.mem.eql(u8, it.next().?, "abc"));
+    try expect(std.mem.eql(u8, it.next().?, "def"));
+    try expect(std.mem.eql(u8, it.next().?, ""));
+    try expect(std.mem.eql(u8, it.next().?, "ghi"));
+    try expect(it.next() == null);
+}
+
 test "read csv with 1 column of floats" {
-    const table = readFile("test1") catch @panic("error reading numbers");
+    const table = try readTableFromCSV("test1");
     defer table.deinit();
     try table.print();
     //try expect(true);
 }
 
 test "read csv with 1 column of strings" {
-    const table = readFile("test2") catch @panic("error reading strings");
+    const table = try readTableFromCSV("test2");
+    defer table.deinit();
+    try table.print();
+    //try expect(true);
+}
+
+test "read csv with 3 columns" {
+    const table = try readTableFromCSV("test3");
     defer table.deinit();
     try table.print();
     //try expect(true);
 }
 
 test "concat" {
-    const a: []const u8 = "hi ";
-    const b: []const u8 = "world";
-    try expect(common.strcmp(a ++ b, "hi world") == common.Compare.equal);
-
-    var list = std.ArrayList(u8).init(common.allocator);
+    var list = std.ArrayList(u8).init(croc);
     defer list.deinit();
     try list.appendSlice("hello ");
     try list.appendSlice("world");
-    try expect(common.strcmp(list.items, "hello world") == common.Compare.equal);
+    try expect(std.mem.eql(u8, list.items, "hello world"));
 }
 
 test "ArrayList" {
-    var list = std.ArrayList(u8).init(common.allocator);
+    var list = std.ArrayList(u8).init(croc);
     defer list.deinit();
     try list.append(47);
     try list.append(11);
@@ -199,8 +249,8 @@ test "ArrayList" {
 }
 
 test "gpa" {
-    var slice = try common.allocator.alloc(i32, 2);
-    defer common.allocator.free(slice);
+    var slice = try croc.alloc(i32, 2);
+    defer croc.free(slice);
 
     slice[0] = 47;
     slice[1] = 11;
