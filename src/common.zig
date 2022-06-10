@@ -75,3 +75,23 @@ pub fn print_with_line(s: []const u8) void {
     }
     std.debug.print("\n", .{});
 }
+
+pub fn print_with_line_above(s: []const u8) void {
+    for (s) |_| {
+        std.debug.print("-", .{});
+    }
+    std.debug.print("\n", .{});
+    std.debug.print("{s}\n", .{s});
+}
+
+pub fn print_with_lines_around(s: []const u8) void {
+    for (s) |_| {
+        std.debug.print("-", .{});
+    }
+    std.debug.print("\n", .{});
+    std.debug.print("{s}\n", .{s});
+    for (s) |_| {
+        std.debug.print("-", .{});
+    }
+    std.debug.print("\n", .{});
+}

@@ -1,5 +1,5 @@
 const std = @import("std");
-const expect = std.testing.expect;
+const testing = std.testing;
 
 const common = @import("common.zig");
 const croc = common.allocator;
@@ -65,6 +65,28 @@ const Column = struct {
         return std.mem.eql(u8, self.name.items, name);
     }
 
+    /// Returns the max length of any column or the name of the column
+    fn max_width(self: Self) !usize {
+        var max = self.name.items.len;
+        var line = std.ArrayList(u8).init(croc);
+        defer line.deinit();
+        for (self.rows.items) |row| {
+            // Should be Value.fmt or something similar
+            var len: usize = 0;
+            switch (row) {
+                .string => |str| len = str.items.len,
+                .float => |num| {
+                    try line.writer().print("{d}", .{num});
+                    len = line.items.len;
+                    try line.resize(0);
+                },
+                .empty => len = 0,
+            }
+            if (len > max) max = len;
+        }
+        return max;
+    }
+
     fn deinit(self: Self) void {
         for (self.rows.items) |_, idx| {
             self.rows.items[idx].deinit();
@@ -73,6 +95,22 @@ const Column = struct {
         self.name.deinit();
     }
 };
+
+test "Column.max_width()" {
+    {
+        const table = try readTableFromCSV("test1");
+        defer table.deinit();
+        const max_len = table.columns.items[0].max_width();
+        try testing.expectEqual(max_len, 3);
+    }
+
+    {
+        const table = try readTableFromCSV("test2");
+        defer table.deinit();
+        const max_len = table.columns.items[0].max_width();
+        try testing.expectEqual(max_len, 23);
+    }
+}
 
 const Table = struct {
     name: std.ArrayList(u8),
@@ -107,47 +145,71 @@ const Table = struct {
     }
 
     fn print(self: Self) !void {
-        // print table name
-        const string = try std.fmt.allocPrint(croc, "\nTable {s}", .{self.name.items});
-        defer croc.free(string);
-        common.print_with_line(string);
+        var line = std.ArrayList(u8).init(croc);
+
+        {
+            // print table name
+            const len = 1 + 5 + 1 + self.name.items.len + 1;
+            try line.append('\n');
+            try line.appendNTimes('-', len);
+            try line.append('\n');
+            try line.writer().print("|Table {s}|", .{self.name.items});
+            try line.append('\n');
+            std.debug.print("{s}", .{line.items});
+        }
+        // get the width of all columns
+        var widths = std.ArrayList(usize).init(croc);
+        defer widths.deinit();
+        for (self.columns.items) |col| {
+            try widths.append(try col.max_width());
+        }
 
         // print column names
-        var line = std.ArrayList(u8).init(croc);
+        try line.resize(0); // reusing the line from above
         defer line.deinit();
+        try line.appendSlice("|");
         for (self.columns.items) |col, idx| {
             try line.appendSlice(col.name.items);
-            if (idx + 1 < self.columns.items.len) {
-                try line.appendSlice(",");
-            }
+            const extra_width = widths.items[idx] - col.name.items.len;
+            try line.appendNTimes(' ', extra_width);
+            try line.appendSlice("|");
         }
-        common.print_with_line(line.items);
+        common.print_with_lines_around(line.items);
 
         // print column contents
         var row_idx: usize = 0;
         var has_more: bool = true;
-        const p = line.writer().print;
         while (has_more) : (row_idx += 1) {
             try line.resize(0); // reusing the line from above
 
+            try line.appendSlice("|");
             has_more = false;
             for (self.columns.items) |col, idx| {
                 if (col.rows.items.len > row_idx + 1) {
                     has_more = true;
                 }
                 const row = col.rows.items[row_idx];
+                const len_before = line.items.len;
                 switch (row) {
-                    .string => |s| try p("{s}", .{s.items}),
-                    .float => |d| try p("{d}", .{d}),
+                    .string => |s| try line.writer().print("{s}", .{s.items}),
+                    .float => |d| try line.writer().print("{d}", .{d}),
                     .empty => {},
                 }
+                const len_after = line.items.len;
 
-                if (idx + 1 < self.columns.items.len) {
-                    try line.appendSlice(",");
-                }
+                const extra_width = widths.items[idx] - (len_after - len_before);
+                try line.appendNTimes(' ', extra_width);
+                try line.appendSlice("|");
+                //if (idx + 1 < self.columns.items.len) {
+                //try line.appendSlice(",");
+                //}
             }
             std.debug.print("{s}\n", .{line.items});
         }
+        const len = line.items.len;
+        try line.resize(0); // reusing the line from above
+        try line.appendNTimes('-', len);
+        std.debug.print("{s}\n", .{line.items});
     }
 
     fn deinit(self: Self) void {
@@ -202,57 +264,28 @@ fn readTableFromCSV(name: []const u8) !Table {
     return table;
 }
 
-test "split" {
-    var it = std.mem.split(u8, "abc|def||ghi", "|");
-    try expect(std.mem.eql(u8, it.next().?, "abc"));
-    try expect(std.mem.eql(u8, it.next().?, "def"));
-    try expect(std.mem.eql(u8, it.next().?, ""));
-    try expect(std.mem.eql(u8, it.next().?, "ghi"));
-    try expect(it.next() == null);
-}
-
 test "read csv with 1 column of floats" {
     const table = try readTableFromCSV("test1");
     defer table.deinit();
     try table.print();
-    //try expect(true);
+    //try testing.expect(true);
 }
 
 test "read csv with 1 column of strings" {
     const table = try readTableFromCSV("test2");
     defer table.deinit();
     try table.print();
-    //try expect(true);
+    //try testing.expect(true);
 }
 
 test "read csv with 3 columns" {
     const table = try readTableFromCSV("test3");
     defer table.deinit();
     try table.print();
-    //try expect(true);
+    //try testing.expect(true);
 }
-
-test "concat" {
-    var list = std.ArrayList(u8).init(croc);
-    defer list.deinit();
-    try list.appendSlice("hello ");
-    try list.appendSlice("world");
-    try expect(std.mem.eql(u8, list.items, "hello world"));
-}
-
-test "ArrayList" {
-    var list = std.ArrayList(u8).init(croc);
-    defer list.deinit();
-    try list.append(47);
-    try list.append(11);
-    //print("{d} {d}\n", .{ list.items[0], list.items[1] });
-}
-
-test "gpa" {
-    var slice = try croc.alloc(i32, 2);
-    defer croc.free(slice);
-
-    slice[0] = 47;
-    slice[1] = 11;
-    //print("{d} {d}\n", .{ slice[0], slice[1] });
-}
+//var line = std.ArrayList(u8).init(croc);
+//defer line.deinit();
+//try line.resize(0); // reusing the line from above
+//const p = line.writer().print;
+//.float => |d| try p("{d}", .{d}),
