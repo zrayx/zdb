@@ -207,37 +207,44 @@ const Table = struct {
         try self.columns.items[col_idx].rows.append(v);
     }
 
-    fn print(self: Self) !void {
+    fn print(self: Self, writer: anytype) !void {
         var line = std.ArrayList(u8).init(croc);
+        defer line.deinit();
 
-        {
-            // print table name
-            const len = 1 + 5 + 1 + self.name.items.len + 1;
-            try line.append('\n');
-            try line.appendNTimes('-', len);
-            try line.append('\n');
-            try line.writer().print("|Table {s}|", .{self.name.items});
-            try line.append('\n');
-            std.debug.print("{s}", .{line.items});
-        }
+        // print table name
+        const table_name_width = 1 + 5 + 1 + self.name.items.len + 1;
+        try line.append('\n');
+        try line.appendNTimes('-', table_name_width);
+        try line.append('\n');
+        try line.writer().print("|Table {s}|", .{self.name.items});
+        try line.append('\n');
+
         // get the width of all columns
         var widths = std.ArrayList(usize).init(croc);
         defer widths.deinit();
+        var col_total_width: usize = 1;
         for (self.columns.items) |col| {
-            try widths.append(try col.max_width());
+            const col_width = try col.max_width();
+            try widths.append(col_width);
+            col_total_width += col_width + 1;
         }
 
+        // print dashed line between table name and table content
+        try line.appendNTimes('-', if (table_name_width > col_total_width) table_name_width else col_total_width);
+        try line.append('\n');
+
         // print column names
-        try line.resize(0); // reusing the line from above
-        defer line.deinit();
-        try line.appendSlice("|");
+        try line.append('|');
         for (self.columns.items) |col, idx| {
             try line.appendSlice(col.name.items);
             const extra_width = widths.items[idx] - col.name.items.len;
             try line.appendNTimes(' ', extra_width);
-            try line.appendSlice("|");
+            try line.append('|');
         }
-        common.print_with_lines_around(line.items);
+        try line.append('\n');
+        try line.appendNTimes('-', col_total_width);
+        try line.append('\n');
+        try writer.print("{s}", .{line.items});
 
         // print column contents
         var row_idx: usize = 0;
@@ -267,12 +274,12 @@ const Table = struct {
                 //try line.appendSlice(",");
                 //}
             }
-            std.debug.print("{s}\n", .{line.items});
+            try writer.print("{s}\n", .{line.items});
         }
         const len = line.items.len;
         try line.resize(0); // reusing the line from above
         try line.appendNTimes('-', len);
-        std.debug.print("{s}\n", .{line.items});
+        try writer.print("{s}\n", .{line.items});
     }
 
     fn deinit(self: Self) void {
@@ -328,25 +335,84 @@ fn readTableFromCSV(name: []const u8) !Table {
 }
 
 test "read csv with 1 column of floats" {
+    var line = std.ArrayList(u8).init(croc);
+    defer line.deinit();
+    var line2 = std.ArrayList(u8).init(croc);
+    defer line2.deinit();
     const table = try readTableFromCSV("test1");
     defer table.deinit();
-    try table.print();
-    //try testing.expect(true);
+    try table.print(line.writer());
+    //std.debug.print("{s}", .{line.items});
+    _ = try line2.writer().write(
+        \\
+        \\-------------
+        \\|Table test1|
+        \\-------------
+        \\|num|
+        \\-----
+        \\|1  |
+        \\|2  |
+        \\|3  |
+        \\|4  |
+        \\-----
+        \\
+    );
+    //std.debug.print("{s}", .{line2.items});
+    try testing.expectEqualStrings(line.items, line2.items);
 }
 
 test "read csv with 1 column of strings" {
+    var line = std.ArrayList(u8).init(croc);
+    defer line.deinit();
+    var line2 = std.ArrayList(u8).init(croc);
+    defer line2.deinit();
     const table = try readTableFromCSV("test2");
     defer table.deinit();
-    try table.print();
-    //try testing.expect(true);
+    try table.print(line.writer());
+    //std.debug.print("{s}", .{line.items});
+    _ = try line2.writer().write(
+        \\
+        \\-------------
+        \\|Table test2|
+        \\-------------------------
+        \\|text                   |
+        \\-------------------------
+        \\|txt1                   |
+        \\|Text 2                 |
+        \\|And this is text three!|
+        \\-------------------------
+        \\
+    );
+    //std.debug.print("{s}", .{line2.items});
+    try testing.expectEqualStrings(line.items, line2.items);
 }
 
 test "read csv with 3 columns" {
+    var line = std.ArrayList(u8).init(croc);
+    defer line.deinit();
+    var line2 = std.ArrayList(u8).init(croc);
+    defer line2.deinit();
     const table = try readTableFromCSV("test3");
     defer table.deinit();
-    try table.print();
-    //try testing.expect(true);
+    try table.print(line.writer());
+    //std.debug.print("{s}", .{line.items});
+    _ = try line2.writer().write(
+        \\
+        \\-------------
+        \\|Table test3|
+        \\--------------------
+        \\|text |num|one_more|
+        \\--------------------
+        \\|text1|1  |1       |
+        \\|text2|2  |two     |
+        \\|text3|3  |你好  |
+        \\--------------------
+        \\
+    );
+    //std.debug.print("{s}", .{line2.items});
+    try testing.expectEqualStrings(line.items, line2.items);
 }
+
 //var line = std.ArrayList(u8).init(croc);
 //defer line.deinit();
 //try line.resize(0); // reusing the line from above
