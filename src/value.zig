@@ -33,6 +33,37 @@ pub const Value = union(Type) {
         }
     }
 
+    pub fn write(self: Self, writer: anytype) !void {
+        _ = switch (self) {
+            .string => |s| _ = try writer.write(s.items),
+            .float => |f| _ = try writer.print("{d}", .{f}),
+            .empty => {},
+        };
+    }
+
+    test "write" {
+        var line = std.ArrayList(u8).init(croc);
+        defer line.deinit();
+        var s = std.ArrayList(u8).init(croc);
+        defer s.deinit();
+        _ = try s.writer().write("some string");
+
+        const v1 = Value{ .string = s };
+        try v1.write(line.writer());
+        try testing.expectEqualStrings(line.items, "some string");
+
+        try line.resize(0);
+        const v2 = Value{ .float = 1 };
+        try v2.write(line.writer());
+        try testing.expectEqualStrings(line.items, "1");
+
+        try line.resize(0);
+        var v3: Value = undefined;
+        v3 = Value.empty;
+        try v3.write(line.writer());
+        try testing.expectEqualStrings(line.items, "");
+    }
+
     pub fn compare(self: Self, other: Value) Compare {
         _ = switch (self) {
             .string => |self_s| {

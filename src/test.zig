@@ -11,6 +11,8 @@ const table = @import("table.zig");
 const Table = table.Table;
 const croc = common.allocator;
 
+// Tests that are not included next to the implementation
+
 test "Column.max_width()" {
     {
         const tab1 = try Table.fromCSV("test1");

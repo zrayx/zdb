@@ -61,7 +61,7 @@ pub const Table = struct {
         return Compare.equal;
     }
 
-    test "Table.compare" {
+    test "compare" {
         var table_a = try Table.fromCSV("test3");
         defer table_a.deinit();
         try table_a.rename("table_a");
@@ -166,6 +166,52 @@ pub const Table = struct {
         try writer.print("{s}\n", .{line.items});
     }
 
+    pub fn write(self: Self) !void {
+        const filename = try std.fmt.allocPrint(croc, "db/{s}.csv", .{self.name.items});
+        defer croc.free(filename);
+        var file = try std.fs.cwd().createFile(filename, .{ .truncate = true });
+        defer file.close();
+
+        for (self.columns.items) |col, idx| {
+            try file.writer().print("{s}", .{col.name.items});
+            if (idx + 1 < self.columns.items.len) {
+                _ = try file.writer().write(",");
+            }
+        }
+        _ = try file.writer().write("\n");
+
+        var has_more = true;
+        var row_idx: usize = 0;
+        while (has_more) : (row_idx += 1) {
+            has_more = false;
+            for (self.columns.items) |col, idx| {
+                if (col.rows.items.len > row_idx) {
+                    const row = col.rows.items[row_idx];
+                    _ = try row.write(file.writer());
+                    if (col.rows.items.len > row_idx + 1) has_more = true;
+                }
+                if (idx + 1 < self.columns.items.len) {
+                    _ = try file.writer().write(",");
+                }
+            }
+            _ = try file.writer().write("\n");
+        }
+
+        return;
+    }
+
+    test "write" {
+        var tab3 = try Table.fromCSV("test3");
+        defer tab3.deinit();
+        try tab3.rename("test4");
+        try tab3.write();
+
+        const tab4 = try Table.fromCSV("test4");
+        defer tab4.deinit();
+
+        try testing.expectEqual(tab3.compare(tab4), Compare.equal);
+    }
+
     pub fn fromCSV(name: []const u8) !Table {
         const filename = try std.fmt.allocPrint(croc, "db/{s}.csv", .{name});
         defer croc.free(filename);
@@ -206,6 +252,85 @@ pub const Table = struct {
         return table;
     }
 
+    test "fromCSV: read csv with 1 column of floats" {
+        var line = std.ArrayList(u8).init(croc);
+        defer line.deinit();
+        var line2 = std.ArrayList(u8).init(croc);
+        defer line2.deinit();
+        const tab1 = try Table.fromCSV("test1");
+        defer tab1.deinit();
+        try tab1.print(line.writer());
+        //std.debug.print("{s}", .{line.items});
+        _ = try line2.writer().write(
+            \\
+            \\-------------
+            \\|Table test1|
+            \\-------------
+            \\|num|
+            \\-----
+            \\|1  |
+            \\|2  |
+            \\|3  |
+            \\|4  |
+            \\-----
+            \\
+        );
+        //std.debug.print("{s}", .{line2.items});
+        try testing.expectEqualStrings(line.items, line2.items);
+    }
+
+    test "fromCSV: read csv with 1 column of strings" {
+        var line = std.ArrayList(u8).init(croc);
+        defer line.deinit();
+        var line2 = std.ArrayList(u8).init(croc);
+        defer line2.deinit();
+        const tab2 = try Table.fromCSV("test2");
+        defer tab2.deinit();
+        try tab2.print(line.writer());
+        //std.debug.print("{s}", .{line.items});
+        _ = try line2.writer().write(
+            \\
+            \\-------------
+            \\|Table test2|
+            \\-------------------------
+            \\|text                   |
+            \\-------------------------
+            \\|txt1                   |
+            \\|Text 2                 |
+            \\|And this is text three!|
+            \\-------------------------
+            \\
+        );
+        //std.debug.print("{s}", .{line2.items});
+        try testing.expectEqualStrings(line.items, line2.items);
+    }
+
+    test "fromCSV: read csv with 3 columns" {
+        var line = std.ArrayList(u8).init(croc);
+        defer line.deinit();
+        var line2 = std.ArrayList(u8).init(croc);
+        defer line2.deinit();
+        const tab3 = try Table.fromCSV("test3");
+        defer tab3.deinit();
+        try tab3.print(line.writer());
+        //std.debug.print("{s}", .{line.items});
+        _ = try line2.writer().write(
+            \\
+            \\-------------
+            \\|Table test3|
+            \\--------------------
+            \\|text |num|one_more|
+            \\--------------------
+            \\|text1|1  |1       |
+            \\|text2|2  |two     |
+            \\|text3|3  |你好  |
+            \\--------------------
+            \\
+        );
+        //std.debug.print("{s}", .{line2.items});
+        try testing.expectEqualStrings(line.items, line2.items);
+    }
+
     pub fn deinit(self: Self) void {
         for (self.columns.items) |_, idx| {
             self.columns.items[idx].deinit();
@@ -214,82 +339,3 @@ pub const Table = struct {
         self.name.deinit();
     }
 };
-
-test "read csv with 1 column of floats" {
-    var line = std.ArrayList(u8).init(croc);
-    defer line.deinit();
-    var line2 = std.ArrayList(u8).init(croc);
-    defer line2.deinit();
-    const tab1 = try Table.fromCSV("test1");
-    defer tab1.deinit();
-    try tab1.print(line.writer());
-    //std.debug.print("{s}", .{line.items});
-    _ = try line2.writer().write(
-        \\
-        \\-------------
-        \\|Table test1|
-        \\-------------
-        \\|num|
-        \\-----
-        \\|1  |
-        \\|2  |
-        \\|3  |
-        \\|4  |
-        \\-----
-        \\
-    );
-    //std.debug.print("{s}", .{line2.items});
-    try testing.expectEqualStrings(line.items, line2.items);
-}
-
-test "read csv with 1 column of strings" {
-    var line = std.ArrayList(u8).init(croc);
-    defer line.deinit();
-    var line2 = std.ArrayList(u8).init(croc);
-    defer line2.deinit();
-    const tab2 = try Table.fromCSV("test2");
-    defer tab2.deinit();
-    try tab2.print(line.writer());
-    //std.debug.print("{s}", .{line.items});
-    _ = try line2.writer().write(
-        \\
-        \\-------------
-        \\|Table test2|
-        \\-------------------------
-        \\|text                   |
-        \\-------------------------
-        \\|txt1                   |
-        \\|Text 2                 |
-        \\|And this is text three!|
-        \\-------------------------
-        \\
-    );
-    //std.debug.print("{s}", .{line2.items});
-    try testing.expectEqualStrings(line.items, line2.items);
-}
-
-test "read csv with 3 columns" {
-    var line = std.ArrayList(u8).init(croc);
-    defer line.deinit();
-    var line2 = std.ArrayList(u8).init(croc);
-    defer line2.deinit();
-    const tab3 = try Table.fromCSV("test3");
-    defer tab3.deinit();
-    try tab3.print(line.writer());
-    //std.debug.print("{s}", .{line.items});
-    _ = try line2.writer().write(
-        \\
-        \\-------------
-        \\|Table test3|
-        \\--------------------
-        \\|text |num|one_more|
-        \\--------------------
-        \\|text1|1  |1       |
-        \\|text2|2  |two     |
-        \\|text3|3  |你好  |
-        \\--------------------
-        \\
-    );
-    //std.debug.print("{s}", .{line2.items});
-    try testing.expectEqualStrings(line.items, line2.items);
-}
