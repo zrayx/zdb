@@ -2,8 +2,10 @@
 
 while :; do
     clear
-    zig test src/main.zig
+    zig build test > out 2>&1
+    head -$((LINES-4)) out | cut -b-$COLUMNS
+    rm out
     #zig run test.zig
     echo --------------------------------------------------------------------------------
-    inotifywait -q -e close_write src/*.zig build.zig
+    inotifywait --format %w -q -e close_write src/*.zig build.zig
 done

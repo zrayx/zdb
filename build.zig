@@ -9,9 +9,18 @@ pub fn build(b: *std.build.Builder) void {
     lib.setBuildMode(mode);
     lib.install();
 
-    const main_tests = b.addTest("src/main.zig");
-    main_tests.setBuildMode(mode);
-
     const test_step = b.step("test", "Run library tests");
-    test_step.dependOn(&main_tests.step);
+    var files = [_][]const u8{
+        "src/main.zig",
+        "src/common.zig",
+        "src/value.zig",
+        "src/column.zig",
+        "src/table.zig",
+        "src/test.zig",
+    };
+    for (files) |file| {
+        const tests = b.addTest(file);
+        tests.setBuildMode(mode);
+        test_step.dependOn(&tests.step);
+    }
 }
