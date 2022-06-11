@@ -6,8 +6,9 @@ while :; do
     #head -$((LINES-4)) out | cut -b-$COLUMNS
     #rm out
 
-    zig build test
+    #zig build test
+    zig build run
 
     echo --------------------------------------------------------------------------------
-    inotifywait --format %w -q -e close_write src/*.zig build.zig
+    inotifywait --format %w -q -e close_write src/*.zig examples/*.zig build.zig
 done

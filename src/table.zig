@@ -132,7 +132,13 @@ pub const Table = struct {
 
         // print column contents
         var row_idx: usize = 0;
-        var has_more: bool = true;
+        var has_more: bool = false;
+        if (self.columns.items.len > 0) {
+            const col0 = self.columns.items[0];
+            if (col0.rows.items.len > 0) {
+                has_more = true;
+            }
+        }
         while (has_more) : (row_idx += 1) {
             try line.resize(0); // reusing the line from above
 
