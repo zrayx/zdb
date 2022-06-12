@@ -22,16 +22,23 @@ pub fn main() !void {
     var t1 = try Table.init("io");
     defer t1.deinit();
 
+    try parse(&t1, "new col date");
+    try parse(&t1, "new col time");
     try parse(&t1, "new col name");
     try parse(&t1, "new col value");
 
+    try parse(&t1, "append date 1.1.1900");
+    try parse(&t1, "append time 4:20");
     try parse(&t1, "append name Love");
     try parse(&t1, "append value The answer");
+
+    try parse(&t1, "append date 31.4.2099");
+    try parse(&t1, "append time 0:00");
     try parse(&t1, "append name The answer");
     try parse(&t1, "append value 42");
 
     try t1.print(std.io.getStdOut().writer());
-    try t1.write();
+    try t1.save();
 }
 
 fn parse(table: *Table, input: []const u8) !void {

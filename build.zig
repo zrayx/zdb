@@ -32,6 +32,8 @@ pub fn build(b: *std.build.Builder) void {
     var files = [_][]const u8{
         "src/main.zig",
         "src/common.zig",
+        "src/date.zig",
+        "src/time.zig",
         "src/value.zig",
         "src/column.zig",
         "src/table.zig",

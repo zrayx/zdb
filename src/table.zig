@@ -59,13 +59,13 @@ pub const Table = struct {
         try self.columns.items[col_idx].rows.append(v);
     }
 
-    pub fn compare(self: Self, other: Table) Compare {
+    pub fn compare(self: Self, other: Table) !Compare {
         var i: usize = 0;
         while (i < self.columns.items.len) : (i += 1) {
             if (other.columns.items.len <= i) {
                 return Compare.greater;
             }
-            const v = self.columns.items[i].compare(other.columns.items[i]);
+            const v = try self.columns.items[i].compare(other.columns.items[i]);
             if (v != Compare.equal) return v;
         }
         if (other.columns.items.len > i) {
@@ -164,11 +164,7 @@ pub const Table = struct {
                 const len_before = line.items.len;
                 if (col.rows.items.len > row_idx) {
                     const row = col.rows.items[row_idx];
-                    switch (row) {
-                        .string => |s| try line.writer().print("{s}", .{s.items}),
-                        .float => |d| try line.writer().print("{d}", .{d}),
-                        .empty => {},
-                    }
+                    try row.write(line.writer());
                 }
                 const len_after = line.items.len;
 
@@ -187,7 +183,7 @@ pub const Table = struct {
         try writer.print("{s}\n", .{line.items});
     }
 
-    pub fn write(self: Self) !void {
+    pub fn save(self: Self) !void {
         const filename = try std.fmt.allocPrint(croc, "db/{s}.csv", .{self.name.items});
         defer croc.free(filename);
         var file = try std.fs.cwd().createFile(filename, .{ .truncate = true });
@@ -221,11 +217,11 @@ pub const Table = struct {
         return;
     }
 
-    test "write" {
+    test "save" {
         var tab3 = try Table.fromCSV("test3");
         defer tab3.deinit();
         try tab3.rename("test4");
-        try tab3.write();
+        try tab3.save();
 
         const tab4 = try Table.fromCSV("test4");
         defer tab4.deinit();

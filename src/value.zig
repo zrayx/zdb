@@ -4,16 +4,22 @@ const testing = std.testing;
 const common = @import("common.zig");
 const Compare = common.Compare;
 const croc = common.allocator;
+const Date = @import("date.zig").Date;
+const Time = @import("time.zig").Time;
 
 pub const Type = enum {
     float,
     string,
+    date,
+    time,
     empty,
 };
 
 pub const Value = union(Type) {
     float: f64,
     string: std.ArrayList(u8),
+    date: Date,
+    time: Time,
     empty,
 
     const Self = @This();
@@ -23,9 +29,12 @@ pub const Value = union(Type) {
             return Value.empty;
         }
 
-        const f_err = std.fmt.parseFloat(f64, s);
-        if (f_err) |f| {
+        if (std.fmt.parseFloat(f64, s)) |f| {
             return Value{ .float = f };
+        } else |_| if (Time.parse(s)) |time| {
+            return Value{ .time = time };
+        } else |_| if (Date.parse(s)) |date| {
+            return Value{ .date = date };
         } else |_| {
             var v = Value{ .string = std.ArrayList(u8).init(croc) };
             try v.string.appendSlice(s);
@@ -37,6 +46,8 @@ pub const Value = union(Type) {
         _ = switch (self) {
             .string => |s| _ = try writer.write(s.items),
             .float => |f| _ = try writer.print("{d}", .{f}),
+            .date => |d| try d.write(writer),
+            .time => |t| try t.write(writer),
             .empty => {},
         };
     }
@@ -64,43 +75,26 @@ pub const Value = union(Type) {
         try testing.expectEqualStrings(line.items, "");
     }
 
-    pub fn compare(self: Self, other: Value) Compare {
+    pub fn compare(self: Self, other: Value) !Compare {
         _ = switch (self) {
-            .string => |self_s| {
-                _ = switch (other) {
-                    .string => |other_s| return common.strcmp(self_s.items, other_s.items),
-                    .float => |other_f| {
-                        var other_line = std.ArrayList(u8).init(croc);
-                        defer other_line.deinit();
-                        other_line.writer().print("{d}", .{other_f}) catch {
-                            @panic("out of memory");
-                        };
-                        return common.strcmp(self_s.items, other_line.items);
-                    },
-                    .empty => return Compare.greater,
-                };
-            },
             .float => |self_f| {
                 _ = switch (other) {
-                    .float => |other_f| return if (self_f > other_f) Compare.greater else if (self_f < other_f) Compare.lesser else Compare.equal,
-                    .string => |other_s| {
-                        var self_line = std.ArrayList(u8).init(croc);
-                        defer self_line.deinit();
-                        self_line.writer().print("{d}", .{self_f}) catch {
-                            @panic("out of memory");
-                        };
-                        return common.strcmp(self_line.items, other_s.items);
+                    .float => |other_f| {
+                        return if (self_f > other_f) Compare.greater else if (self_f < other_f) Compare.lesser else Compare.equal;
                     },
-                    .empty => return Compare.greater,
+                    else => {},
                 };
             },
-            .empty => {
-                _ = switch (other) {
-                    .empty => return Compare.equal,
-                    else => return Compare.lesser,
-                };
-            },
+            else => {},
         };
+        var line_self = std.ArrayList(u8).init(croc);
+        defer line_self.deinit();
+        var line_other = std.ArrayList(u8).init(croc);
+        defer line_other.deinit();
+
+        try self.write(line_self.writer());
+        try other.write(line_other.writer());
+        return common.strcmp(line_self.items, line_other.items);
     }
 
     test "Value.compare" {

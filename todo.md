@@ -1,7 +1,6 @@
 priority n-1
 ============
 * new data type "Time"
-* new data type "Date"
 * select
 * add convenience functions
   * len()

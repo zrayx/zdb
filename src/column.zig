@@ -41,25 +41,24 @@ pub const Column = struct {
             var len: usize = 0;
             switch (row) {
                 .string => |str| len = str.items.len,
-                .float => |num| {
-                    try line.writer().print("{d}", .{num});
+                else => {
+                    _ = try row.write(line.writer());
                     len = line.items.len;
                     try line.resize(0);
                 },
-                .empty => len = 0,
             }
             if (len > max) max = len;
         }
         return max;
     }
 
-    pub fn compare(self: Self, other: Column) Compare {
+    pub fn compare(self: Self, other: Column) !Compare {
         var i: usize = 0;
         while (i < self.rows.items.len) : (i += 1) {
             if (other.rows.items.len <= i) {
                 return Compare.greater;
             }
-            const v = self.rows.items[i].compare(other.rows.items[i]);
+            const v = try self.rows.items[i].compare(other.rows.items[i]);
             if (v != Compare.equal) return v;
         }
         if (other.rows.items.len > i) {
