@@ -18,6 +18,7 @@ fn streq(left: []const u8, right: []const u8) bool {
 // drop table io
 // rename column name new_name
 // add row The answer, 42
+// inc date => insert date[row-1]+1
 pub fn main() !void {
     var t1 = try Table.init("io");
     defer t1.deinit();
@@ -37,7 +38,7 @@ pub fn main() !void {
     try parse(&t1, "append name The answer");
     try parse(&t1, "append value 42");
 
-    try t1.print(std.io.getStdOut().writer());
+    try t1.write(std.io.getStdOut().writer());
     try t1.save();
 }
 

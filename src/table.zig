@@ -9,6 +9,10 @@ const Value = value.Value;
 const column = @import("column.zig");
 const Column = column.Column;
 
+pub const TableError = error{
+    InvalidPosition,
+};
+
 pub const Table = struct {
     name: std.ArrayList(u8),
     columns: std.ArrayList(Column),
@@ -22,6 +26,44 @@ pub const Table = struct {
         };
         try table.name.appendSlice(name);
         return table;
+    }
+
+    pub fn replaceAt(self: *Self, col_idx: usize, row_idx: usize, val: Value) !void {
+        if (self.columns.items.len < col_idx + 1 or self.columns.items[col_idx].rows.items.len < row_idx + 1)
+            return error.InvalidPosition;
+        var rows = &self.columns.items[col_idx].rows;
+        rows.items[row_idx].deinit();
+        rows.items[row_idx] = val;
+    }
+
+    test "replaceAt" {
+        var line1 = std.ArrayList(u8).init(croc);
+        defer line1.deinit();
+        var line2 = std.ArrayList(u8).init(croc);
+        defer line2.deinit();
+        var tab3 = try Table.fromCSV("test3");
+        defer tab3.deinit();
+        try tab3.replaceAt(0, 1, try Value.parse("4:20"));
+        try tab3.write(line1.writer());
+        _ = try line2.writer().write(
+            \\
+            \\-------------
+            \\|Table test3|
+            \\--------------------
+            \\|text |num|one_more|
+            \\--------------------
+            \\|text1|1  |1       |
+            \\|04:20|2  |two     |
+            \\|text3|3  |你好  |
+            \\--------------------
+            \\
+        );
+        try testing.expectEqualStrings(line1.items, line2.items);
+
+        const e = tab3.replaceAt(99, 1, try Value.parse("4:20"));
+        try testing.expectError(error.InvalidPosition, e);
+        const f = tab3.replaceAt(1, 99, try Value.parse("4:20"));
+        try testing.expectError(error.InvalidPosition, f);
     }
 
     pub fn rename(self: *Self, name: []const u8) !void {
@@ -101,10 +143,10 @@ pub const Table = struct {
     }
 
     pub fn debug(self: Self) !void {
-        try self.print(std.io.getStdErr().writer());
+        try self.write(std.io.getStdErr().writer());
     }
 
-    pub fn print(self: Self, writer: anytype) !void {
+    pub fn write(self: Self, writer: anytype) !void {
         var line = std.ArrayList(u8).init(croc);
         defer line.deinit();
 
@@ -276,7 +318,7 @@ pub const Table = struct {
         defer line2.deinit();
         const tab1 = try Table.fromCSV("test1");
         defer tab1.deinit();
-        try tab1.print(line.writer());
+        try tab1.write(line.writer());
         //std.debug.print("{s}", .{line.items});
         _ = try line2.writer().write(
             \\
@@ -303,7 +345,7 @@ pub const Table = struct {
         defer line2.deinit();
         const tab2 = try Table.fromCSV("test2");
         defer tab2.deinit();
-        try tab2.print(line.writer());
+        try tab2.write(line.writer());
         //std.debug.print("{s}", .{line.items});
         _ = try line2.writer().write(
             \\
@@ -329,7 +371,7 @@ pub const Table = struct {
         defer line2.deinit();
         const tab3 = try Table.fromCSV("test3");
         defer tab3.deinit();
-        try tab3.print(line.writer());
+        try tab3.write(line.writer());
         //std.debug.print("{s}", .{line.items});
         _ = try line2.writer().write(
             \\

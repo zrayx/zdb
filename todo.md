@@ -1,16 +1,15 @@
 priority n-1
 ============
-* new data type "Time"
-* select
 * add convenience functions
   * len()
   * getAt()/valueAt()
   * get()/getNamed()/getByName()
-* build an example application
-* rename column
+* delete row
+* replaceAt(x,y)
 
 priority n-1
 ============
+* rename column
 * math operations
   * avg, sum, etc.
 * result set

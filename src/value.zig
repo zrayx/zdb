@@ -123,7 +123,10 @@ pub const Value = union(Type) {
     pub fn deinit(self: Self) void {
         _ = switch (self) {
             .string => |s| s.deinit(),
-            else => .{},
+            .float => .{},
+            .date => .{},
+            .time => .{},
+            .empty => .{},
         };
         return {};
     }
