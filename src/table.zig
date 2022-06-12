@@ -29,9 +29,22 @@ pub const Table = struct {
         try self.name.appendSlice(name);
     }
 
+    pub fn has_column(self: *Self, name: []const u8) bool {
+        for (self.columns.items) |col| {
+            if (std.mem.eql(u8, name, col.name.items)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     pub fn add_column(self: *Self, name: []const u8) !void {
-        var col = try Column.init(name);
-        try self.columns.append(col);
+        if (!self.has_column(name)) {
+            var col = try Column.init(name);
+            try self.columns.append(col);
+        } else {
+            std.debug.panic("column named (\"{s}\") already exists", .{name});
+        }
     }
 
     pub fn append_column(self: *Self, colname: []const u8, v: Value) !void {
@@ -148,12 +161,14 @@ pub const Table = struct {
                 if (col.rows.items.len > row_idx + 1) {
                     has_more = true;
                 }
-                const row = col.rows.items[row_idx];
                 const len_before = line.items.len;
-                switch (row) {
-                    .string => |s| try line.writer().print("{s}", .{s.items}),
-                    .float => |d| try line.writer().print("{d}", .{d}),
-                    .empty => {},
+                if (col.rows.items.len > row_idx) {
+                    const row = col.rows.items[row_idx];
+                    switch (row) {
+                        .string => |s| try line.writer().print("{s}", .{s.items}),
+                        .float => |d| try line.writer().print("{d}", .{d}),
+                        .empty => {},
+                    }
                 }
                 const len_after = line.items.len;
 
