@@ -6,9 +6,12 @@ priority n-1
   * get()/getNamed()/getByName()
 * delete row
 * replaceAt(x,y)
+* convert all snake _ case table to camelCase
+  * rg 'pub fn. * _'
 
 priority n-1
 ============
+* cache column.maxWidth
 * rename column
 * math operations
   * avg, sum, etc.

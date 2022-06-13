@@ -151,7 +151,7 @@ pub const Table = struct {
         defer line.deinit();
 
         // print table name
-        const table_name_width = 1 + 5 + 1 + self.name.items.len + 1;
+        const table_name_width = 1 + 5 + 1 + self.name.items.len + 1; // '|Table {}|'
         try line.append('\n');
         try line.appendNTimes('-', table_name_width);
         try line.append('\n');
@@ -219,6 +219,7 @@ pub const Table = struct {
             }
             try writer.print("{s}\n", .{line.items});
         }
+
         const len = line.items.len;
         try line.resize(0); // reusing the line from above
         try line.appendNTimes('-', len);
