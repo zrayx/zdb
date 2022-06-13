@@ -1,17 +1,24 @@
 priority n-1
 ============
-* add convenience functions
-  * len()
-  * getAt()/valueAt()
-  * get()/getNamed()/getByName()
 * delete row
 * replaceAt(x,y)
 * convert all snake _ case table to camelCase
-  * rg 'pub fn. * _'
+  * rg 'pub fn. * _ '
 
 priority n-1
 ============
 * cache column.maxWidth
+* write TUI spreadsheet program
+
+priority n-1
+============
+* add datatype database (collection of tables)
+* add convenience functions
+  * len()
+  * getAt()/valueAt()/at()
+  * get()/getNamed()/getByName()/value()
+    * row()/column()/value()
+    * rowAt()/columnAt()/valueAt()
 * rename column
 * math operations
   * avg, sum, etc.
@@ -33,6 +40,10 @@ priority n-1
 * auto generated columns
   * e.g. date: 15.3.2022/16.3.2022/17.3.2022 etc.
   * function "incAbove"?
+* delete row(s)
+  * ArrayList.orderedRemove()
+* insert row(s)
+* delete/insert columns
 
 priority n-1
 ============
