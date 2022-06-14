@@ -69,13 +69,13 @@ fn parse(table: *Table, input: []const u8) !void {
             } else if (command == Args.append) {
                 const colname = arg;
                 const content = it.rest();
-                try table.append_column(colname, try Value.parse(content));
+                try table.appendToColumn(colname, try Value.parse(content));
             } else {
                 std.debug.panic("unknown command {s}", .{input});
             }
         } else if (idx == 2) {
             if (command == Args.new_col) {
-                try table.add_column(arg);
+                try table.addColumn(arg);
             }
         }
     }

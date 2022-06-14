@@ -71,7 +71,7 @@ pub const Table = struct {
         try self.name.appendSlice(name);
     }
 
-    pub fn has_column(self: *Self, name: []const u8) bool {
+    pub fn hasColumn(self: *Self, name: []const u8) bool {
         for (self.columns.items) |col| {
             if (std.mem.eql(u8, name, col.name.items)) {
                 return true;
@@ -80,8 +80,8 @@ pub const Table = struct {
         return false;
     }
 
-    pub fn add_column(self: *Self, name: []const u8) !void {
-        if (!self.has_column(name)) {
+    pub fn addColumn(self: *Self, name: []const u8) !void {
+        if (!self.hasColumn(name)) {
             var col = try Column.init(name);
             try self.columns.append(col);
         } else {
@@ -89,15 +89,15 @@ pub const Table = struct {
         }
     }
 
-    pub fn append_column(self: *Self, colname: []const u8, v: Value) !void {
+    pub fn appendToColumn(self: *Self, colname: []const u8, v: Value) !void {
         for (self.columns.items) |col, idx| {
-            if (col.is_name(colname)) {
+            if (col.isName(colname)) {
                 try self.columns.items[idx].rows.append(v);
             }
         }
     }
 
-    pub fn append_at(self: *Self, col_idx: usize, v: Value) !void {
+    pub fn appendAt(self: *Self, col_idx: usize, v: Value) !void {
         try self.columns.items[col_idx].rows.append(v);
     }
 
@@ -136,7 +136,7 @@ pub const Table = struct {
         var table_c = try Table.fromCSV("test3");
         defer table_c.deinit();
         try table_c.rename("table_c");
-        try table_c.append_at(0, Value{ .float = 1 });
+        try table_c.appendAt(0, Value{ .float = 1 });
 
         try testing.expectEqual(table_a.compare(table_c), Compare.lesser);
         try testing.expectEqual(table_c.compare(table_a), Compare.greater);
@@ -163,7 +163,7 @@ pub const Table = struct {
         defer widths.deinit();
         var col_total_width: usize = 1;
         for (self.columns.items) |col| {
-            const col_width = try col.max_width();
+            const col_width = try col.maxWidth();
             try widths.append(col_width);
             col_total_width += col_width + 1;
         }
@@ -290,7 +290,7 @@ pub const Table = struct {
             var it_title = std.mem.split(u8, line_title, ",");
             var num_columns: usize = 0;
             while (it_title.next()) |colname| {
-                try table.add_column(colname);
+                try table.addColumn(colname);
                 num_columns += 1;
             }
 
@@ -300,11 +300,11 @@ pub const Table = struct {
                 var col_idx: usize = 0;
                 while (it.next()) |content| {
                     const val = try Value.parse(content);
-                    try table.append_at(col_idx, val);
+                    try table.appendAt(col_idx, val);
                     col_idx += 1;
                 }
                 while (col_idx < num_columns) : (col_idx += 1) {
-                    try table.append_at(col_idx, Value.empty);
+                    try table.appendAt(col_idx, Value.empty);
                     col_idx += 1;
                 }
             }

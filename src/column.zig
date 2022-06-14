@@ -27,12 +27,12 @@ pub const Column = struct {
     }
 
     /// returns true if name identifies this column
-    pub fn is_name(self: Self, name: []const u8) bool {
+    pub fn isName(self: Self, name: []const u8) bool {
         return std.mem.eql(u8, self.name.items, name);
     }
 
     /// Returns the max length of any column or the name of the column
-    pub fn max_width(self: Self) !usize {
+    pub fn maxWidth(self: Self) !usize {
         var max = self.name.items.len;
         var line = std.ArrayList(u8).init(croc);
         defer line.deinit();

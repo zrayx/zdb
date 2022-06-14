@@ -13,18 +13,18 @@ const croc = common.allocator;
 
 // Tests that are not included next to the implementation
 
-test "Column.max_width()" {
+test "Column.maxWidth()" {
     {
         const tab1 = try Table.fromCSV("test1");
         defer tab1.deinit();
-        const max_len = tab1.columns.items[0].max_width();
+        const max_len = tab1.columns.items[0].maxWidth();
         try testing.expectEqual(max_len, 3);
     }
 
     {
         const tab2 = try Table.fromCSV("test2");
         defer tab2.deinit();
-        const max_len = tab2.columns.items[0].max_width();
+        const max_len = tab2.columns.items[0].maxWidth();
         try testing.expectEqual(max_len, 23);
     }
 }
@@ -52,7 +52,7 @@ test "Column.compare" {
 
     var table_c = try Table.fromCSV("test1");
     defer table_c.deinit();
-    try table_c.append_at(0, Value{ .float = 1 });
+    try table_c.appendAt(0, Value{ .float = 1 });
     const col_c = table_c.columns.items[0];
 
     try testing.expectEqual(col_a.compare(col_c), Compare.lesser);
