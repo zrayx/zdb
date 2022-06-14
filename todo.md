@@ -1,9 +1,7 @@
 priority n-1
 ============
 * delete row
-* replaceAt(x,y)
-* convert all snake _ case table to camelCase
-  * rg 'pub fn. * _ '
+* segfault in deinit() in column.zig
 
 priority n-1
 ============

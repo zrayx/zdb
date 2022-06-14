@@ -52,6 +52,10 @@ pub const Time = struct {
         return time;
     }
 
+    pub fn clone(self: Self) !Time {
+        return Time{ .hour = self.hour, .minute = self.minute };
+    }
+
     fn writeWord(word: u8, writer: anytype) !void {
         _ = try writer.writeByte(word / 10 + 48);
         _ = try writer.writeByte(word % 10 + 48);

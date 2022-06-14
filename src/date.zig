@@ -67,6 +67,10 @@ pub const Date = struct {
         return date;
     }
 
+    pub fn clone(self: Self) !Date {
+        return Date{ .day = self.day, .month = self.month, .year = self.year };
+    }
+
     fn writeWord(word: u8, writer: anytype) !void {
         _ = try writer.writeByte(word / 10 + 48);
         _ = try writer.writeByte(word % 10 + 48);

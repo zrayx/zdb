@@ -42,6 +42,27 @@ pub const Value = union(Type) {
         }
     }
 
+    pub fn clone(self: Self) !Value {
+        var v: Value = undefined;
+        _ = switch (self) {
+            .float => v = Value{ .float = self.float },
+            .string => {
+                v = Value{ .string = std.ArrayList(u8).init(croc) };
+                try v.string.appendSlice(self.string.items);
+            },
+            .date => v = Value{ .date = try self.date.clone() },
+            .time => v = Value{ .time = try self.time.clone() },
+            .empty => v = Value.empty,
+        };
+        return v;
+    }
+
+    test "clone" {
+        const v = Value{ .float = 3.1 };
+        const w = try v.clone();
+        _ = w;
+    }
+
     pub fn write(self: Self, writer: anytype) !void {
         _ = switch (self) {
             .string => |s| _ = try writer.write(s.items),

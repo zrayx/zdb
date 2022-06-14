@@ -28,6 +28,12 @@ pub const Table = struct {
         return table;
     }
 
+    pub fn getAt(self: *Self, col_idx: usize, row_idx: usize) !Value {
+        if (self.columns.items.len < col_idx + 1 or self.columns.items[col_idx].rows.items.len < row_idx + 1)
+            return error.InvalidPosition;
+        return self.columns.items[col_idx].rows.items[row_idx];
+    }
+
     pub fn replaceAt(self: *Self, col_idx: usize, row_idx: usize, val: Value) !void {
         if (self.columns.items.len < col_idx + 1 or self.columns.items[col_idx].rows.items.len < row_idx + 1)
             return error.InvalidPosition;
