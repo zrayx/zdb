@@ -94,6 +94,13 @@ pub const Table = struct {
             std.debug.panic("column named (\"{s}\") already exists", .{name});
         }
     }
+    pub fn deleteColumnAt(self: *Self, idx: usize) !void {
+        if (idx >= self.columns.items.len) {
+            return error.InvalidPosition;
+        }
+        self.columns.items[idx].deinit();
+        _ = self.columns.orderedRemove(idx);
+    }
 
     pub fn appendToColumn(self: *Self, colname: []const u8, v: Value) !void {
         for (self.columns.items) |col, idx| {
