@@ -26,6 +26,14 @@ pub const Column = struct {
         try self.rows.append(v);
     }
 
+    pub fn deleteRowAt(self: *Self, idx: usize) !void {
+        if (idx >= self.rows.items.len) {
+            return error.InvalidPosition;
+        }
+        self.rows.items[idx].deinit();
+        _ = self.rows.orderedRemove(idx);
+    }
+
     /// returns true if name identifies this column
     pub fn isName(self: Self, name: []const u8) bool {
         return std.mem.eql(u8, self.name.items, name);

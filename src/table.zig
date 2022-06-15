@@ -11,6 +11,7 @@ const Column = column.Column;
 
 pub const TableError = error{
     InvalidPosition,
+    ColumnExists,
 };
 
 pub const Table = struct {
@@ -91,15 +92,26 @@ pub const Table = struct {
             var col = try Column.init(name);
             try self.columns.append(col);
         } else {
-            std.debug.panic("column named (\"{s}\") already exists", .{name});
+            return error.ColumnExists;
         }
     }
+
     pub fn deleteColumnAt(self: *Self, idx: usize) !void {
         if (idx >= self.columns.items.len) {
             return error.InvalidPosition;
         }
         self.columns.items[idx].deinit();
         _ = self.columns.orderedRemove(idx);
+    }
+
+    pub fn deleteRowAt(self: *Self, idx: usize) !void {
+        for (self.columns.items) |_, col_idx| {
+            self.columns.items[col_idx].deleteRowAt(idx) catch |e| {
+                if (e != error.InvalidPosition) {
+                    return e;
+                }
+            };
+        }
     }
 
     pub fn appendToColumn(self: *Self, colname: []const u8, v: Value) !void {
