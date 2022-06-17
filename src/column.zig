@@ -39,6 +39,11 @@ pub const Column = struct {
         return std.mem.eql(u8, self.name.items, name);
     }
 
+    pub fn rename(self: *Self, name: []const u8) !void {
+        try self.name.resize(0);
+        try self.name.appendSlice(name);
+    }
+
     /// Returns the max length of any column or the name of the column
     pub fn maxWidth(self: Self) !usize {
         var max = self.name.items.len;

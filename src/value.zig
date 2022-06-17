@@ -63,9 +63,29 @@ pub const Value = union(Type) {
         _ = w;
     }
 
+    pub fn writeString(s: []const u8, writer: anytype) !void {
+        if (std.mem.indexOfScalar(u8, s, ',')) |_| {
+            _ = try writer.write("\"");
+            _ = try writer.write(s);
+            _ = try writer.write("\"");
+        } else {
+            _ = try writer.write(s);
+        }
+    }
+
     pub fn write(self: Self, writer: anytype) !void {
         _ = switch (self) {
             .string => |s| _ = try writer.write(s.items),
+            .float => |f| _ = try writer.print("{d}", .{f}),
+            .date => |d| try d.write(writer),
+            .time => |t| try t.write(writer),
+            .empty => {},
+        };
+    }
+
+    pub fn writeQuoted(self: Self, writer: anytype) !void {
+        _ = switch (self) {
+            .string => |s| try writeString(s.items, writer),
             .float => |f| _ = try writer.print("{d}", .{f}),
             .date => |d| try d.write(writer),
             .time => |t| try t.write(writer),
@@ -84,6 +104,13 @@ pub const Value = union(Type) {
         try v1.write(line.writer());
         try testing.expectEqualStrings(line.items, "some string");
 
+        try s.resize(0);
+        try line.resize(0);
+        _ = try s.writer().write("some,string");
+        const v11 = Value{ .string = s };
+        try v11.write(line.writer());
+        try testing.expectEqualStrings(line.items, "some,string");
+
         try line.resize(0);
         const v2 = Value{ .float = 1 };
         try v2.write(line.writer());
@@ -93,6 +120,36 @@ pub const Value = union(Type) {
         var v3: Value = undefined;
         v3 = Value.empty;
         try v3.write(line.writer());
+        try testing.expectEqualStrings(line.items, "");
+    }
+
+    test "writeQuoted" {
+        var line = std.ArrayList(u8).init(croc);
+        defer line.deinit();
+        var s = std.ArrayList(u8).init(croc);
+        defer s.deinit();
+        _ = try s.writer().write("some string");
+
+        const v1 = Value{ .string = s };
+        try v1.writeQuoted(line.writer());
+        try testing.expectEqualStrings(line.items, "some string");
+
+        try s.resize(0);
+        try line.resize(0);
+        _ = try s.writer().write("some,string");
+        const v11 = Value{ .string = s };
+        try v11.writeQuoted(line.writer());
+        try testing.expectEqualStrings(line.items, "\"some,string\"");
+
+        try line.resize(0);
+        const v2 = Value{ .float = 1 };
+        try v2.writeQuoted(line.writer());
+        try testing.expectEqualStrings(line.items, "1");
+
+        try line.resize(0);
+        var v3: Value = undefined;
+        v3 = Value.empty;
+        try v3.writeQuoted(line.writer());
         try testing.expectEqualStrings(line.items, "");
     }
 

@@ -78,6 +78,12 @@ pub const Table = struct {
         try self.name.appendSlice(name);
     }
 
+    pub fn renameColumnAt(self: *Self, idx: usize, name: []const u8) !void {
+        if (idx < self.columns.items.len) {
+            try self.columns.items[idx].rename(name);
+        }
+    }
+
     pub fn hasColumn(self: *Self, name: []const u8) bool {
         for (self.columns.items) |col| {
             if (std.mem.eql(u8, name, col.name.items)) {
@@ -123,6 +129,7 @@ pub const Table = struct {
     }
 
     pub fn appendAt(self: *Self, col_idx: usize, v: Value) !void {
+        if (col_idx >= self.columns.items.len) return error.InvalidPosition;
         try self.columns.items[col_idx].rows.append(v);
     }
 
@@ -272,7 +279,7 @@ pub const Table = struct {
             for (self.columns.items) |col, idx| {
                 if (col.rows.items.len > row_idx) {
                     const row = col.rows.items[row_idx];
-                    _ = try row.write(file.writer());
+                    _ = try row.writeQuoted(file.writer());
                     if (col.rows.items.len > row_idx + 1) has_more = true;
                 }
                 if (idx + 1 < self.columns.items.len) {
@@ -304,6 +311,7 @@ pub const Table = struct {
         defer file.close();
 
         var table = try Table.init(name);
+        errdefer table.deinit();
 
         var buf_reader = std.io.bufferedReader(file.reader());
         var in_stream = buf_reader.reader();
@@ -315,16 +323,19 @@ pub const Table = struct {
             var it_title = std.mem.split(u8, line_title, ",");
             var num_columns: usize = 0;
             while (it_title.next()) |colname| {
-                try table.addColumn(colname);
-                num_columns += 1;
+                if (colname.len > 0) {
+                    try table.addColumn(colname);
+                    num_columns += 1;
+                }
             }
 
             // read column contents
             while (try in_stream.readUntilDelimiterOrEof(&buf, '\n')) |line| {
-                var it = std.mem.split(u8, line, ",");
+                var it = common.csvSplit(line);
                 var col_idx: usize = 0;
                 while (it.next()) |content| {
                     const val = try Value.parse(content);
+                    errdefer val.deinit();
                     try table.appendAt(col_idx, val);
                     col_idx += 1;
                 }
@@ -335,6 +346,11 @@ pub const Table = struct {
             }
         }
         return table;
+    }
+
+    test "fromCSV: read csv with more content columns than header columns" {
+        const e = Table.fromCSV("test5");
+        try testing.expectError(error.InvalidPosition, e);
     }
 
     test "fromCSV: read csv with 1 column of floats" {
@@ -408,6 +424,32 @@ pub const Table = struct {
             \\--------------------
             \\|text1|1  |1       |
             \\|text2|2  |two     |
+            \\|text3|3  |你好  |
+            \\--------------------
+            \\
+        );
+        //std.debug.print("{s}", .{line2.items});
+        try testing.expectEqualStrings(line.items, line2.items);
+    }
+
+    test "fromCSV: read csv with commas and quotes" {
+        var line = std.ArrayList(u8).init(croc);
+        defer line.deinit();
+        var line2 = std.ArrayList(u8).init(croc);
+        defer line2.deinit();
+        const tab3 = try Table.fromCSV("test6");
+        defer tab3.deinit();
+        try tab3.write(line.writer());
+        //std.debug.print("{s}", .{line.items});
+        _ = try line2.writer().write(
+            \\
+            \\-------------
+            \\|Table test6|
+            \\--------------------
+            \\|text |num|one_more|
+            \\--------------------
+            \\|text1|1  |1       |
+            \\|te,t2|2  |two     |
             \\|text3|3  |你好  |
             \\--------------------
             \\
