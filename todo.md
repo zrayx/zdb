@@ -1,5 +1,6 @@
 priority n-1
 ============
+proper error message when two columns with the same name are trying to loaded in fromCSV
 double quotes around strings that contain commas
   needs custom split function
 crash when column contains a comma?

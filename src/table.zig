@@ -79,6 +79,12 @@ pub const Table = struct {
     }
 
     pub fn renameColumnAt(self: *Self, idx: usize, name: []const u8) !void {
+        var i: usize = 0;
+        while (i < self.columns.items.len) : (i += 1) {
+            if (i != idx and std.mem.eql(u8, name, self.columns.items[i].name.items)) {
+                return error.ColumnExists;
+            }
+        }
         if (idx < self.columns.items.len) {
             try self.columns.items[idx].rename(name);
         }
