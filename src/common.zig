@@ -125,6 +125,7 @@ pub fn CsvSplitIterator() type {
         /// Returns a slice of the next field, or null if splitting is complete.
         pub fn next(self: *Self) ?[]const u8 {
             var start = self.index orelse return null;
+            if (self.index.? >= self.buffer.len) return null;
             var end = self.index.?;
             if (self.buffer[start] == '"') {
                 end += 1;
