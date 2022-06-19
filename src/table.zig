@@ -108,12 +108,37 @@ pub const Table = struct {
         }
     }
 
+    pub fn insertColumnAt(self: *Self, idx: usize, name: []const u8) !void {
+        if (idx >= self.columns.items.len) {
+            return error.InvalidPosition;
+        }
+        _ = self.columns.insert(idx, try Column.init(name));
+    }
+
+    pub fn swapColumnsAt(self: *Self, left: usize, right: usize) !void {
+        const len = self.columns.items.len;
+        if (left >= len or right >= len) {
+            return error.InvalidPosition;
+        }
+        _ = common.swap(Column, self.columns, left, right);
+    }
+
     pub fn deleteColumnAt(self: *Self, idx: usize) !void {
         if (idx >= self.columns.items.len) {
             return error.InvalidPosition;
         }
         self.columns.items[idx].deinit();
         _ = self.columns.orderedRemove(idx);
+    }
+
+    pub fn insertRowAt(self: *Self, idx: usize) !void {
+        for (self.columns.items) |_, col_idx| {
+            self.columns.items[col_idx].insertRowAt(idx) catch |e| {
+                if (e != error.InvalidPosition) {
+                    return e;
+                }
+            };
+        }
     }
 
     pub fn deleteRowAt(self: *Self, idx: usize) !void {

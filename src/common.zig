@@ -69,6 +69,12 @@ test "strcmp" {
     try expect(strcmp("abc", "ab") == Compare.greater);
 }
 
+pub fn swap(comptime T: type, list: std.ArrayList(T), left: usize, right: usize) void {
+    const tmp: T = list.items[left];
+    list.items[left] = list.items[right];
+    list.items[right] = tmp;
+}
+
 pub fn split(comptime T: type, buffer: []const T, delimiter: []const T) SplitIterator(T) {
     std.debug.assert(delimiter.len != 0);
     return .{

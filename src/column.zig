@@ -34,6 +34,13 @@ pub const Column = struct {
         _ = self.rows.orderedRemove(idx);
     }
 
+    pub fn insertRowAt(self: *Self, idx: usize) !void {
+        if (idx >= self.rows.items.len) {
+            return error.InvalidPosition;
+        }
+        _ = try self.rows.insert(idx, Value.empty);
+    }
+
     /// returns true if name identifies this column
     pub fn isName(self: Self, name: []const u8) bool {
         return std.mem.eql(u8, self.name.items, name);
