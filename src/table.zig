@@ -112,7 +112,7 @@ pub const Table = struct {
         if (idx >= self.columns.items.len) {
             return error.InvalidPosition;
         }
-        _ = self.columns.insert(idx, try Column.init(name));
+        _ = try self.columns.insert(idx, try Column.init(name));
     }
 
     pub fn swapColumnsAt(self: *Self, left: usize, right: usize) !void {
