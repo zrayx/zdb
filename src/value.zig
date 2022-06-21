@@ -6,6 +6,7 @@ const Compare = common.Compare;
 const croc = common.allocator;
 const Date = @import("date.zig").Date;
 const Time = @import("time.zig").Time;
+const time = std.time;
 
 pub const Type = enum {
     float,
@@ -24,6 +25,44 @@ pub const Value = union(Type) {
 
     const Self = @This();
 
+    pub fn today() Value {
+        const now = time.timestamp() + 2 * 60 * 60; // adjust for Berlin time. TODO: not correct for everybody
+        const es = time.epoch.EpochSeconds{ .secs = @intCast(u64, now) };
+        const epoch_seconds = time.epoch.EpochSeconds.getEpochDay(es);
+        const epoch_year_day = time.epoch.EpochDay.calculateYearDay(epoch_seconds);
+        const epoch_month_day = time.epoch.YearAndDay.calculateMonthDay(epoch_year_day);
+        //const today_ = time.epoch.MonthAndDay{ .month = time.epoch.Month.jun, .day_index = 20 };
+
+        const year = epoch_year_day.year;
+        const month = epoch_month_day.month;
+        const day = epoch_month_day.day_index + 1;
+
+        return .{ .date = Date{ .year = year, .month = month.numeric(), .day = day } };
+    }
+
+    test "today" {
+        const d = Date{ .year = 2022, .month = 6, .day = 21 };
+        const e = Date{ .year = 2022, .month = 6, .day = 21 };
+
+        try testing.expectEqual(d, e);
+    }
+
+    test "epoch" {
+        const now = time.timestamp() + 2 * 60 * 60; // adjust for Berlin time. TODO: not correct for everybody
+        const es = time.epoch.EpochSeconds{ .secs = @intCast(u64, now) };
+        const epoch_seconds = time.epoch.EpochSeconds.getEpochDay(es);
+        try testing.expectEqual(@as(u47, 19164), epoch_seconds.day);
+
+        const epoch_year_day = time.epoch.EpochDay.calculateYearDay(epoch_seconds);
+        try testing.expectEqual(@as(u16, 2022), epoch_year_day.year);
+        try testing.expectEqual(@as(u16, 171), epoch_year_day.day);
+
+        const epoch_month_day = time.epoch.YearAndDay.calculateMonthDay(epoch_year_day);
+        const today_ = time.epoch.MonthAndDay{ .month = time.epoch.Month.jun, .day_index = 20 };
+        try testing.expectEqual(today_.month, epoch_month_day.month);
+        try testing.expectEqual(today_.day_index, epoch_month_day.day_index);
+    }
+
     pub fn parse(s: []const u8) !Value {
         if (s.len == 0) {
             return Value.empty;
@@ -31,8 +70,8 @@ pub const Value = union(Type) {
 
         if (std.fmt.parseFloat(f64, s)) |f| {
             return Value{ .float = f };
-        } else |_| if (Time.parse(s)) |time| {
-            return Value{ .time = time };
+        } else |_| if (Time.parse(s)) |t| {
+            return Value{ .time = t };
         } else |_| if (Date.parse(s)) |date| {
             return Value{ .date = date };
         } else |_| {
