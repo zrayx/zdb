@@ -6,6 +6,7 @@ clear
 #head -$((LINES-4)) out | cut -b-$COLUMNS
 #rm out
 
+zig fmt build.zig src/*.zig
 zig build test
 
 #zig build run
