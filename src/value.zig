@@ -47,22 +47,6 @@ pub const Value = union(Type) {
         try testing.expectEqual(d, e);
     }
 
-    test "epoch" {
-        const now = time.timestamp() + 2 * 60 * 60; // adjust for Berlin time. TODO: not correct for everybody
-        const es = time.epoch.EpochSeconds{ .secs = @intCast(u64, now) };
-        const epoch_seconds = time.epoch.EpochSeconds.getEpochDay(es);
-        try testing.expectEqual(@as(u47, 19164), epoch_seconds.day);
-
-        const epoch_year_day = time.epoch.EpochDay.calculateYearDay(epoch_seconds);
-        try testing.expectEqual(@as(u16, 2022), epoch_year_day.year);
-        try testing.expectEqual(@as(u16, 171), epoch_year_day.day);
-
-        const epoch_month_day = time.epoch.YearAndDay.calculateMonthDay(epoch_year_day);
-        const today_ = time.epoch.MonthAndDay{ .month = time.epoch.Month.jun, .day_index = 20 };
-        try testing.expectEqual(today_.month, epoch_month_day.month);
-        try testing.expectEqual(today_.day_index, epoch_month_day.day_index);
-    }
-
     pub fn parse(s: []const u8) !Value {
         if (s.len == 0) {
             return Value.empty;
